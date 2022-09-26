@@ -40,23 +40,23 @@ if (__SLIDEV_FEATURE_DRAWINGS__)
 </script>
 
 <template>
-  <div id="page-root" ref="root" class="grid grid-cols-[1fr,max-content]" :style="themeVars">
+  <div id="page-root" ref="root" class="grid grid-cols-[1fr_max-content]" :style="themeVars">
     <SlideContainer
       class="w-full h-full"
-      :style="{ background: 'var(--slidev-slide-container-background, black)'}"
+      :style="{ background: 'var(--slidev-slide-container-background, black)' }"
       :width="isPrintMode ? windowSize.width.value : undefined"
       :scale="slideScale"
       @pointerdown="onClick"
     >
-      <template #>
-        <SlidesShow />
+      <template #default>
+        <SlidesShow context="slide" />
       </template>
       <template #controls>
         <div
           class="absolute bottom-0 left-0 transition duration-300 opacity-0 hover:opacity-100"
           :class="[
             persistNav ? 'opacity-100 right-0' : 'opacity-0 p-2',
-            isDrawing ? 'pointer-events-none': ''
+            isDrawing ? 'pointer-events-none' : '',
           ]"
         >
           <NavControls class="m-auto" :persist="persistNav" />

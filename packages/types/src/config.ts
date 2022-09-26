@@ -1,4 +1,3 @@
-/* eslint-disable no-use-before-define */
 import type { SlidevThemeConfig } from './types'
 
 export interface SlidevConfig {
@@ -18,9 +17,15 @@ export interface SlidevConfig {
    */
   theme: string
   /**
+   * List of Slidev addons
+   *
+   * @default []
+   */
+  addons: string[]
+  /**
    * Download remote assets in local using vite-plugin-remote-assets
    *
-   * @default true
+   * @default false
    */
   remoteAssets: boolean | 'dev' | 'build'
   /**
@@ -37,6 +42,12 @@ export interface SlidevConfig {
    * @default false
    */
   download: boolean | string
+  /**
+   * Show a copy button in code blocks
+   *
+   * @default true
+   */
+  codeCopy: boolean
   /**
    * Information shows on the built SPA
    * Can be a markdown string
@@ -136,6 +147,22 @@ export interface SlidevConfig {
    * @default 'dev'
    */
   record: boolean | 'dev' | 'build'
+  /**
+   * Expose the server to inbound requests (listen to `0.0.0.0`)
+   *
+   * Pass a string to set the password for accessing presenter mode.
+   *
+   * @default false
+   */
+  remote?: string | boolean
+  /**
+   * Engine for atomic CSS
+   *
+   * UnoCSS support is currently experimental.
+   *
+   * @default 'windicss'
+   */
+  css: 'windicss' | 'unocss'
 }
 
 export interface FontOptions {

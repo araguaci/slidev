@@ -11,6 +11,7 @@ import type { SlideInfo, SlideInfoExtended, SlidevMarkdown } from '@slidev/types
 import * as parser from '@slidev/parser/fs'
 import equal from 'fast-deep-equal'
 
+import type { LoadResult } from 'rollup'
 import type { ResolvedSlidevOptions, SlidevPluginOptions, SlidevServerOptions } from '../options'
 import { resolveImportPath, stringifyMarkdownTokens, toAtFS } from '../utils'
 
@@ -65,7 +66,7 @@ function prepareSlideInfo(data: SlideInfo): SlideInfoExtended {
 }
 
 export function createSlidesLoader(
-  { data, entry, clientRoot, themeRoots, userRoot, roots }: ResolvedSlidevOptions,
+  { data, entry, clientRoot, themeRoots, addonRoots, userRoot, roots, remote }: ResolvedSlidevOptions,
   pluginOptions: SlidevPluginOptions,
   serverOptions: SlidevServerOptions,
   VuePlugin: Plugin,
@@ -85,7 +86,7 @@ export function createSlidesLoader(
         server = _server
         updateServerWatcher()
 
-        server.middlewares.use(async(req, res, next) => {
+        server.middlewares.use(async (req, res, next) => {
           const match = req.url?.match(regexId)
           if (!match)
             return next()
@@ -179,18 +180,19 @@ export function createSlidesLoader(
 
         const vueModules = (
           await Promise.all(
-            Array.from(hmrPages).map(async(i) => {
+            Array.from(hmrPages).map(async (i) => {
               const file = `${slidePrefix}${i + 1}.md`
               try {
-                const md = await transformMarkdown(await (<any>MarkdownPlugin.transform)(newData.slides[i]?.content, file), i, newData)
-                return await VuePlugin.handleHotUpdate!({
+                const md = await transformMarkdown((await (<any>MarkdownPlugin.transform)(newData.slides[i]?.content, file)).code, i, newData)
+                const handleHotUpdate = 'handler' in VuePlugin.handleHotUpdate! ? VuePlugin.handleHotUpdate!.handler : VuePlugin.handleHotUpdate!
+                return await handleHotUpdate({
                   ...ctx,
                   modules: Array.from(ctx.server.moduleGraph.getModulesByFile(file) || []),
                   file,
                   read() { return md },
                 })
               }
-              catch {}
+              catch { }
             }),
           )
         ).flatMap(i => i || [])
@@ -214,7 +216,7 @@ export function createSlidesLoader(
         return null
       },
 
-      load(id) {
+      load(id): LoadResult | Promise<LoadResult> {
         // routes
         if (id === '/@slidev/routes')
           return generateRoutes()
@@ -253,7 +255,7 @@ export function createSlidesLoader(
             code: data.slides.map(({ title }, i) => {
               return `<template ${i === 0 ? 'v-if' : 'v-else-if'}="+no === ${i + 1}">${title}</template>`
             }).join(''),
-            map: {},
+            map: { mappings: '' },
           }
         }
 
@@ -267,13 +269,13 @@ export function createSlidesLoader(
             if (type === 'md') {
               return {
                 code: data.slides[pageNo]?.content,
-                map: {},
+                map: { mappings: '' },
               }
             }
           }
           return {
             code: '',
-            map: {},
+            map: { mappings: '' },
           }
         }
       },
@@ -312,6 +314,16 @@ export function createSlidesLoader(
         if (id !== '/@slidev/titles.md')
           return
         return transformTitles(code)
+      },
+    },
+    {
+      name: 'slidev:slide-transform:post',
+      enforce: 'post',
+      transform(code, id) {
+        if (!id.match(/\/@slidev\/slides\/\d+\.md($|\?)/))
+          return
+        // force reload slide component to ensure v-click resolves correctly
+        return code.replace('if (_rerender_only)', 'if (false)')
       },
     },
   ]
@@ -367,41 +379,41 @@ export function createSlidesLoader(
     }
     else if (matchScript && !matchScript[2]) {
       // not a setup script
-      const matchExport = code.match(/export\s+default\s+[^{]*{/)
+      const matchExport = code.match(/export\s+default\s+{/)
       if (matchExport) {
         // script exports a component
         const exportIndex = (matchExport.index || 0) + matchExport[0].length
         let component = code.slice(exportIndex)
         component = component.slice(0, component.indexOf('</script>'))
-        if (component.match(/setup\s*\(/)) {
-          // component has a setup option
-          const scriptIndex = (matchScript.index || 0) + matchScript[0].length
-          const provideImport = '\nimport { injectionSlidevContext } from "@slidev/client/constants"\n'
-          code = `${code.slice(0, scriptIndex)}${provideImport}${code.slice(scriptIndex)}`
-          let injectIndex = exportIndex + provideImport.length
-          let injectObject = '$slidev: { from: injectionSlidevContext },'
-          const matchInject = component.match(/.*inject\s*:\s*([\[{])/)
-          if (matchInject) {
-            // component has a inject option
-            injectIndex += (matchInject.index || 0) + matchInject[0].length
-            if (matchInject[1] === '[') {
-              // inject option is array
-              let injects = component.slice((matchInject.index || 0) + matchInject[0].length)
-              const injectEndIndex = injects.indexOf(']')
-              injects = injects.slice(0, injectEndIndex)
-              injectObject += injects.split(',').map(inject => `${inject}: {from: ${inject}}`).join(',')
-              return `${code.slice(0, injectIndex - 1)}{\n${injectObject}\n}${code.slice(injectIndex + injectEndIndex + 1)}`
-            }
-            else {
-              // inject option is object
-              return `${code.slice(0, injectIndex)}\n${injectObject}\n${code.slice(injectIndex)}`
-            }
+
+        const scriptIndex = (matchScript.index || 0) + matchScript[0].length
+        const provideImport = '\nimport { injectionSlidevContext } from "@slidev/client/constants"\n'
+        code = `${code.slice(0, scriptIndex)}${provideImport}${code.slice(scriptIndex)}`
+
+        let injectIndex = exportIndex + provideImport.length
+        let injectObject = '$slidev: { from: injectionSlidevContext },'
+        const matchInject = component.match(/.*inject\s*:\s*([\[{])/)
+        if (matchInject) {
+          // component has a inject option
+          injectIndex += (matchInject.index || 0) + matchInject[0].length
+          if (matchInject[1] === '[') {
+            // inject option in array
+            let injects = component.slice((matchInject.index || 0) + matchInject[0].length)
+            const injectEndIndex = injects.indexOf(']')
+            injects = injects.slice(0, injectEndIndex)
+            injectObject += injects.split(',').map(inject => `${inject}: {from: ${inject}}`).join(',')
+            return `${code.slice(0, injectIndex - 1)}{\n${injectObject}\n}${code.slice(injectIndex + injectEndIndex + 1)}`
           }
-          return `${code.slice(0, injectIndex)}\ninject: { ${injectObject} },\n${code.slice(injectIndex)}`
+          else {
+            // inject option in object
+            return `${code.slice(0, injectIndex)}\n${injectObject}\n${code.slice(injectIndex)}`
+          }
         }
+        // add inject option
+        return `${code.slice(0, injectIndex)}\ninject: { ${injectObject} },\n${code.slice(injectIndex)}`
       }
     }
-    // no setup script or setup option
+    // no setup script and not a vue component
     return `<script setup>\n${imports.join('\n')}\n</script>\n${code}`
   }
 
@@ -423,13 +435,15 @@ defineProps<{ no: number | string }>()`)
     const roots = uniq([
       userRoot,
       ...themeRoots,
+      ...addonRoots,
       clientRoot,
     ])
 
     for (const root of roots) {
-      const layoutPaths = await fg('layouts/*.{vue,ts}', {
+      const layoutPaths = await fg('layouts/**/*.{vue,ts}', {
         cwd: root,
         absolute: true,
+        suppressErrors: true,
       })
 
       for (const layoutPath of layoutPaths) {
@@ -454,6 +468,7 @@ defineProps<{ no: number | string }>()`)
     ]
     const roots = uniq([
       ...themeRoots,
+      ...addonRoots,
       userRoot,
     ])
 
@@ -476,6 +491,26 @@ defineProps<{ no: number | string }>()`)
 
     if (data.features.katex)
       imports.push(`import "${toAtFS(resolveImportPath('katex/dist/katex.min.css', true))}"`)
+
+    if (data.config.css === 'unocss') {
+      imports.unshift(
+        'import "@unocss/reset/tailwind.css"',
+        'import "uno:preflights.css"',
+        'import "uno:typography.css"',
+        'import "uno:shortcuts.css"',
+      )
+      imports.push('import "uno.css"')
+    }
+    else {
+      imports.unshift(
+        'import "virtual:windi-components.css"',
+        'import "virtual:windi-base.css"',
+      )
+      imports.push(
+        'import "virtual:windi-utilities.css"',
+        'import "virtual:windi-devtools"',
+      )
+    }
 
     return imports.join('\n')
   }
@@ -515,14 +550,10 @@ defineProps<{ no: number | string }>()`)
           imports.push(`import n${no} from '${slidePrefix}${idx + 1}.md'`)
           const additions: Partial<RouteMeta> = {
             slide: {
-              start: i.start,
-              end: i.end,
-              note: i.note,
+              ...prepareSlideInfo(i),
               filepath: i.source?.filepath || entry,
               id: idx,
               no,
-              title: i.title,
-              level: i.level,
             },
             __clicksElements: [],
             __preloaded: false,
@@ -544,7 +575,7 @@ defineProps<{ no: number | string }>()`)
   }
 
   function generateConfigs() {
-    const config = { ...data.config }
+    const config = { ...data.config, remote }
     if (isString(config.title)) {
       const tokens = md.parseInline(config.title, {})
       config.title = stringifyMarkdownTokens(tokens)

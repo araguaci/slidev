@@ -8,6 +8,7 @@ body,
   height: 100vh;
   height: calc(var(--vh, 1vh) * 100);
   overflow: hidden;
+  @apply font-sans;
 }
 
 html {
@@ -16,8 +17,9 @@ html {
 
 .icon-btn {
   @apply inline-block cursor-pointer select-none !outline-none;
-  @apply opacity-75 transition duration-200 ease-in-out align-middle rounded p-2;
+  @apply opacity-75 transition duration-200 ease-in-out align-middle rounded p-1;
   @apply hover:(opacity-100 bg-gray-400 bg-opacity-10);
+  @apply md:p-2;
 }
 
 .icon-btn.shallow {

@@ -4,7 +4,8 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useMouse, useWindowFocus } from '@vueuse/core'
 import { clicks, clicksTotal, currentPage, currentRoute, hasNext, nextRoute, total, useSwipeControls } from '../logic/nav'
 import { showOverview, showPresenterCursor } from '../state'
-import { configs, serverState, themeVars } from '../env'
+import { configs, themeVars } from '../env'
+import { sharedState } from '../state/shared'
 import { registerShortcuts } from '../logic/shortcuts'
 import { getSlideClass } from '../utils'
 import { useTimer } from '../logic/utils'
@@ -13,6 +14,7 @@ import SlideContainer from './SlideContainer.vue'
 import NavControls from './NavControls.vue'
 import SlidesOverview from './SlidesOverview.vue'
 import NoteEditor from './NoteEditor.vue'
+import NoteStatic from './NoteStatic.vue'
 import Goto from './Goto.vue'
 import SlidesShow from './SlidesShow.vue'
 import SlideWrapper from './SlideWrapper'
@@ -51,7 +53,7 @@ const nextSlide = computed(() => {
   }
 })
 
-// sync presenter cusor
+// sync presenter cursor
 onMounted(() => {
   const slidesContainer = main.value!.querySelector('#slide-content')!
   const mouse = reactive(useMouse())
@@ -72,7 +74,7 @@ onMounted(() => {
       return { x, y }
     },
     (pos) => {
-      serverState.cursor = pos
+      sharedState.cursor = pos
     },
   )
 })
@@ -82,7 +84,7 @@ onMounted(() => {
   <div class="bg-main h-full slidev-presenter">
     <div class="grid-container">
       <div class="grid-section top flex">
-        <img src="../assets/logo-title-horizontal.png" class="h-14 ml-2 py-2 my-auto">
+        <img src="../assets/logo-title-horizontal.png" class="ml-2 my-auto h-10 py-1 lg:h-14 lg:py-2">
         <div class="flex-auto" />
         <div
           class="timer-btn my-auto relative w-22px h-22px cursor-pointer text-lg"
@@ -92,21 +94,24 @@ onMounted(() => {
           <carbon:time class="absolute" />
           <carbon:renew class="absolute opacity-0" />
         </div>
-        <div class="text-2xl pl-2 pr-6 my-auto">
+        <div class="text-2xl pl-2 pr-6 my-auto tabular-nums">
           {{ timer }}
         </div>
       </div>
-      <div ref="main" class="grid-section main flex flex-col p-4" :style="themeVars">
+      <div ref="main" class="relative grid-section main flex flex-col p-2 lg:p-4" :style="themeVars">
         <SlideContainer
           key="main"
           class="h-full w-full"
         >
-          <template #>
-            <SlidesShow />
+          <template #default>
+            <SlidesShow context="presenter" />
           </template>
         </SlideContainer>
+        <div class="context">
+          current
+        </div>
       </div>
-      <div class="grid-section next flex flex-col p-4">
+      <div class="relative grid-section next flex flex-col p-2 lg:p-4">
         <SlideContainer
           v-if="nextSlide"
           key="next"
@@ -118,11 +123,17 @@ onMounted(() => {
             :clicks="nextSlide.clicks"
             :clicks-disabled="false"
             :class="getSlideClass(nextSlide.route)"
+            :route="nextSlide.route"
+            context="previewNext"
           />
         </SlideContainer>
+        <div class="context">
+          next
+        </div>
       </div>
       <div class="grid-section note overflow-auto">
-        <NoteEditor class="w-full h-full p-4 overflow-auto" />
+        <NoteEditor v-if="__DEV__" class="w-full h-full overflow-auto p-2 lg:p-4" />
+        <NoteStatic v-else class="w-full h-full overflow-auto p-2 lg:p-4" />
       </div>
       <div class="grid-section bottom">
         <NavControls :persist="true" />
@@ -171,7 +182,20 @@ onMounted(() => {
     "bottom bottom";
 }
 
-@screen md {
+@media (max-aspect-ratio: 3/5) {
+  .grid-container {
+    grid-template-columns: 1fr;
+    grid-template-rows: min-content 1fr 1fr 1fr min-content;
+    grid-template-areas:
+      "top"
+      "main"
+      "note"
+      "next"
+      "bottom";
+  }
+}
+
+@media (min-aspect-ratio: 1/1) {
   .grid-container {
     grid-template-columns: 1fr 1.1fr 0.9fr;
     grid-template-rows: min-content 1fr 2fr min-content;
@@ -205,5 +229,9 @@ onMounted(() => {
   &.bottom {
     grid-area: bottom;
   }
+}
+
+.context {
+  @apply absolute top-0 left-0 px-1 text-xs bg-gray-400 bg-opacity-50 opacity-75 rounded-br-md;
 }
 </style>

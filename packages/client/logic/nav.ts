@@ -23,7 +23,7 @@ export { rawRoutes, router }
 // force update collected elements when the route is fully resolved
 const routeForceRefresh = ref(0)
 nextTick(() => {
-  router.afterEach(async() => {
+  router.afterEach(async () => {
     await nextTick()
     routeForceRefresh.value += 1
   })
@@ -36,6 +36,8 @@ export const isPrintWithClicks = computed(() => route.value.query.print === 'cli
 export const isEmbedded = computed(() => route.value.query.embedded !== undefined)
 export const isPresenter = computed(() => route.value.path.startsWith('/presenter'))
 export const isClicksDisabled = computed(() => isPrintMode.value && !isPrintWithClicks.value)
+export const presenterPassword = computed(() => route.value.query.password)
+export const showPresenter = computed(() => !isPresenter.value && (!configs.remote || presenterPassword.value === configs.remote))
 
 export const queryClicks = useRouteQuery('clicks', '0')
 export const total = computed(() => rawRoutes.length - 1)
@@ -111,6 +113,14 @@ export async function prevSlide(lastClicks = true) {
   await go(next)
   if (lastClicks && clicksTotal.value)
     router.replace({ query: { ...route.value.query, clicks: clicksTotal.value } })
+}
+
+export function goFirst() {
+  return go(1)
+}
+
+export function goLast() {
+  return go(total.value)
 }
 
 export function go(page: number | string, clicks?: number) {

@@ -1,3 +1,4 @@
+import { join } from 'path'
 import type { Plugin } from 'vite'
 import Vue from '@vitejs/plugin-vue'
 import Icons from 'unplugin-icons/vite'
@@ -6,8 +7,9 @@ import Components from 'unplugin-vue-components/vite'
 import RemoteAssets, { DefaultRules } from 'vite-plugin-remote-assets'
 import ServerRef from 'vite-plugin-vue-server-ref'
 import { notNullish } from '@antfu/utils'
+import Inspect from 'vite-plugin-inspect'
 import type { ResolvedSlidevOptions, SlidevPluginOptions, SlidevServerOptions } from '../options'
-import { loadDrawings, writeDarwings } from '../drawings'
+import { loadDrawings, writeDrawings } from '../drawings'
 import { createConfigPlugin } from './extendConfig'
 import { createSlidesLoader } from './loaders'
 import { createMonacoTypesLoader } from './monacoTransform'
@@ -15,6 +17,7 @@ import { createClientSetupPlugin } from './setupClient'
 import { createMarkdownPlugin } from './markdown'
 import { createWindiCSSPlugin } from './windicss'
 import { createFixPlugins } from './patchTransform'
+import { createUnocssPlugin } from './unocss'
 
 const customElements = new Set([
   // katex
@@ -63,6 +66,7 @@ export async function ViteSlidevPlugin(
   const {
     mode,
     themeRoots,
+    addonRoots,
     clientRoot,
     data: { config },
   } = options
@@ -86,7 +90,9 @@ export async function ViteSlidevPlugin(
   const drawingData = await loadDrawings(options)
 
   return [
-    await createWindiCSSPlugin(options, pluginOptions),
+    config.css === 'unocss'
+      ? await createUnocssPlugin(options, pluginOptions)
+      : await createWindiCSSPlugin(options, pluginOptions),
     MarkdownPlugin,
     VuePlugin,
 
@@ -96,14 +102,15 @@ export async function ViteSlidevPlugin(
       extensions: ['vue', 'md', 'ts'],
 
       dirs: [
-        `${clientRoot}/builtin`,
-        `${clientRoot}/components`,
-        ...themeRoots.map(i => `${i}/components`),
+        join(clientRoot, 'builtin'),
+        join(clientRoot, 'components'),
+        ...themeRoots.map(i => join(i, 'components')),
+        ...addonRoots.map(i => join(i, 'components')),
         'src/components',
         'components',
       ],
 
-      include: [/\.vue$/, /\.vue\?vue/, /\.md$/],
+      include: [/\.vue$/, /\.vue\?vue/, /\.vue\?v=/, /\.md$/],
       exclude: [],
 
       resolvers: [
@@ -153,7 +160,7 @@ export async function ViteSlidevPlugin(
         if (!options.data.config.drawings.persist)
           return
         if (key === 'drawings')
-          writeDarwings(options, patch ?? data)
+          writeDrawings(options, patch ?? data)
       },
     }),
 
@@ -161,6 +168,13 @@ export async function ViteSlidevPlugin(
     createClientSetupPlugin(options),
     createMonacoTypesLoader(),
     createFixPlugins(options),
+
+    options.inspect
+      ? Inspect({
+        dev: true,
+        build: true,
+      })
+      : null,
   ]
     .flat()
     .filter(notNullish)

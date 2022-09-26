@@ -5,7 +5,7 @@ import type { Plugin } from 'vite'
 import type { ResolvedSlidevOptions } from '../options'
 import { toAtFS } from '../utils'
 
-export function createClientSetupPlugin({ clientRoot, themeRoots, userRoot }: ResolvedSlidevOptions): Plugin {
+export function createClientSetupPlugin({ clientRoot, themeRoots, addonRoots, userRoot }: ResolvedSlidevOptions): Plugin {
   const setupEntry = slash(resolve(clientRoot, 'setup'))
 
   return {
@@ -13,13 +13,16 @@ export function createClientSetupPlugin({ clientRoot, themeRoots, userRoot }: Re
     enforce: 'pre',
     async transform(code, id) {
       if (id.startsWith(setupEntry)) {
-        const name = id.slice(setupEntry.length + 1)
+        const name = id
+          .slice(setupEntry.length + 1)
+          .replace(/\?.*$/, '') // remove query
+
         const imports: string[] = []
         const injections: string[] = []
-        const asyncInjections: string[] = []
 
         const setups = uniq([
           ...themeRoots,
+          ...addonRoots,
           userRoot,
         ]).map(i => join(i, 'setup', name))
 
@@ -29,35 +32,39 @@ export function createClientSetupPlugin({ clientRoot, themeRoots, userRoot }: Re
 
           imports.push(`import __n${idx} from '${toAtFS(path)}'`)
 
-          let fn = `__n${idx}`
-          let awaitFn = `await __n${idx}`
+          let fn = `:AWAIT:__n${idx}`
 
-          if (/\binjection_return\b/g.test(code)) {
+          if (/\binjection_return\b/g.test(code))
             fn = `injection_return = ${fn}`
-            awaitFn = `injection_return = ${awaitFn}`
-          }
+
           if (/\binjection_arg\b/g.test(code)) {
-            fn += ('(injection_arg)')
-            awaitFn += ('(injection_arg)')
+            fn += '('
+            const matches = Array.from(code.matchAll(/\binjection_arg(_\d+)?\b/g))
+            const dedupedMatches = Array.from(new Set(matches.map(m => m[0])))
+            fn += dedupedMatches.join(', ')
+            fn += ', :LAST:)'
           }
           else {
-            fn += ('()')
-            awaitFn += ('()')
+            fn += '(:LAST:)'
           }
 
           injections.push(
             `// ${path}`,
             fn,
           )
-          asyncInjections.push(
-            `// ${path}`,
-            awaitFn,
-          )
         })
 
+        function getInjections(isAwait = false, isChained = false): string {
+          return injections.join('\n')
+            .replace(/:AWAIT:/g, isAwait ? 'await ' : '')
+            .replace(/(,\s*)?:LAST:/g, isChained ? '$1injection_return' : '')
+        }
+
         code = code.replace('/* __imports__ */', imports.join('\n'))
-        code = code.replace('/* __injections__ */', injections.join('\n'))
-        code = code.replace('/* __async_injections__ */', asyncInjections.join('\n'))
+        code = code.replace('/* __injections__ */', getInjections())
+        code = code.replace('/* __async_injections__ */', getInjections(true))
+        code = code.replace('/* __chained_injections__ */', getInjections(false, true))
+        code = code.replace('/* __chained_async_injections__ */', getInjections(true, true))
         return code
       }
 

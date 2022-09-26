@@ -2,19 +2,20 @@ import { dirname, resolve } from 'path'
 import { existsSync } from 'fs'
 import { slash, uniq } from '@antfu/utils'
 import type { WindiCssOptions } from 'vite-plugin-windicss'
-import WindiCSS, { defaultConfigureFiles } from 'vite-plugin-windicss'
 import jiti from 'jiti'
 import type { ResolvedSlidevOptions, SlidevPluginOptions } from '..'
 import { resolveImportPath } from '../utils'
 import { loadSetups } from './setupNode'
 
 export async function createWindiCSSPlugin(
-  { themeRoots, clientRoot, userRoot, roots, data }: ResolvedSlidevOptions,
+  { themeRoots, addonRoots, clientRoot, userRoot, roots, data }: ResolvedSlidevOptions,
   { windicss: windiOptions }: SlidevPluginOptions,
 ) {
+  const { default: WindiCSS, defaultConfigureFiles } = await import('vite-plugin-windicss')
   const configFiles = uniq([
     ...defaultConfigureFiles.map(i => resolve(userRoot, i)),
     ...themeRoots.map(i => `${i}/windi.config.ts`),
+    ...addonRoots.map(i => `${i}/windi.config.ts`),
     resolve(clientRoot, 'windi.config.ts'),
   ])
 
@@ -46,8 +47,12 @@ export async function createWindiCSSPlugin(
       },
       onOptionsResolved(config) {
         themeRoots.forEach((i) => {
-          config.scanOptions.include.push(`${i}/components/*.{vue,ts}`)
-          config.scanOptions.include.push(`${i}/layouts/*.{vue,ts}`)
+          config.scanOptions.include.push(`${i}/components/**/*.{vue,ts}`)
+          config.scanOptions.include.push(`${i}/layouts/**/*.{vue,ts}`)
+        })
+        addonRoots.forEach((i) => {
+          config.scanOptions.include.push(`${i}/components/**/*.{vue,ts}`)
+          config.scanOptions.include.push(`${i}/layouts/**/*.{vue,ts}`)
         })
         config.scanOptions.include.push(`!${slash(resolve(userRoot, 'node_modules'))}`)
         config.scanOptions.exclude.push(dirname(resolveImportPath('monaco-editor/package.json', true)))

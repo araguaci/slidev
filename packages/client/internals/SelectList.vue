@@ -3,9 +3,6 @@ import { useVModel } from '@vueuse/core'
 import type { PropType } from 'vue'
 import type { SelectionItem } from './types'
 
-const emit = defineEmits<{
-  (e: any): void
-}>()
 const props = defineProps({
   modelValue: {
     type: [Object, String, Number] as PropType<any>,
@@ -18,6 +15,9 @@ const props = defineProps({
   },
 })
 
+const emit = defineEmits<{
+  (e: any): void
+}>()
 const value = useVModel(props, 'modelValue', emit, { passive: true })
 </script>
 
@@ -47,7 +47,7 @@ const value = useVModel(props, 'modelValue', emit, { passive: true })
 }
 
 .item {
-  @apply flex rounded whitespace-nowrap py-1 px-4 cursor-default hover:(bg-gray-400 bg-opacity-10);
+  @apply flex rounded whitespace-nowrap py-1 px-4 cursor-default hover:bg-gray-400 hover:bg-opacity-10;
 
   svg {
     @apply mr-1 -ml-2 my-auto;

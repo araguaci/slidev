@@ -35,7 +35,7 @@ context('Basic', () => {
 
     goPage(5)
 
-    cy.get('#page-root > #slide-container > #slide-content > .slidev-page-5 > .slidev-code')
+    cy.get('#page-root > #slide-container > #slide-content > .slidev-page-5 .slidev-code')
       .should('have.text', '<div>{{$slidev.nav.currentPage}}</div>')
       .get('#page-root > #slide-container > #slide-content > .slidev-page-5 > p')
       .should('have.text', 'Current Page: 5')
@@ -160,5 +160,29 @@ context('Basic', () => {
     cy
       .url()
       .should('eq', 'http://localhost:3030/11')
+  })
+
+  it('overview nav', () => {
+    goPage(2)
+
+    cy.get('body')
+      .type('o{RightArrow}{RightArrow}{Enter}')
+      .url()
+      .should('eq', 'http://localhost:3030/4')
+
+    cy.get('body')
+      .type('o{LeftArrow}{LeftArrow}{LeftArrow}{Enter}')
+      .url()
+      .should('eq', 'http://localhost:3030/1')
+
+    cy.get('body')
+      .type('o{DownArrow}{DownArrow}{DownArrow}{Enter}')
+      .url()
+      .should('not.eq', 'http://localhost:3030/1')
+
+    cy.get('body')
+      .type('o{UpArrow}{UpArrow}{UpArrow}{Enter}')
+      .url()
+      .should('eq', 'http://localhost:3030/1')
   })
 })

@@ -5,15 +5,15 @@ import { getFilename, mimeType, recordCamera, recorder, recordingName } from '..
 import Modal from './Modal.vue'
 import DevicesList from './DevicesList.vue'
 
-const emit = defineEmits<{
-  (e: any): void
-}>()
 const props = defineProps({
   modelValue: {
     default: false,
   },
 })
 
+const emit = defineEmits<{
+  (e: any): void
+}>()
 const value = useVModel(props, 'modelValue', emit)
 
 const { startRecording } = recorder
@@ -88,7 +88,6 @@ async function start() {
 
 <style lang="postcss">
 .recording-dialog {
-
   .form-text {
     @apply flex flex-col;
 

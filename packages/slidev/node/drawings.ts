@@ -5,7 +5,10 @@ import type { ResolvedSlidevOptions } from './options'
 
 function resolveDrawingsDir(options: ResolvedSlidevOptions): string | undefined {
   return options.data.config.drawings.persist
-    ? resolve(dirname(options.entry), options.data.config.drawings.persist)
+    ? resolve(
+      dirname(options.entry),
+      options.data.config.drawings.persist,
+    )
     : undefined
 }
 
@@ -18,10 +21,11 @@ export async function loadDrawings(options: ResolvedSlidevOptions) {
     onlyFiles: true,
     cwd: dir,
     absolute: true,
+    suppressErrors: true,
   })
 
   const obj: Record<string, string> = {}
-  Promise.all(files.map(async(path) => {
+  Promise.all(files.map(async (path) => {
     const num = +basename(path, '.svg')
     if (Number.isNaN(num))
       return
@@ -33,7 +37,7 @@ export async function loadDrawings(options: ResolvedSlidevOptions) {
   return obj
 }
 
-export async function writeDarwings(options: ResolvedSlidevOptions, drawing: Record<string, string>) {
+export async function writeDrawings(options: ResolvedSlidevOptions, drawing: Record<string, string>) {
   const dir = resolveDrawingsDir(options)
   if (!dir)
     return
@@ -45,7 +49,7 @@ export async function writeDarwings(options: ResolvedSlidevOptions, drawing: Rec
   await fs.ensureDir(dir)
 
   return Promise.all(
-    Object.entries(drawing).map(async([key, value]) => {
+    Object.entries(drawing).map(async ([key, value]) => {
       if (!value)
         return
 

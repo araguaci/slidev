@@ -1,28 +1,32 @@
 {
-  "version": "0.30.3",
+  "version": "0.36.5",
   "private": true,
+  "packageManager": "pnpm@7.9.0",
+  "engines": {
+    "node": ">=14.0.0"
+  },
   "scripts": {
-    "build": "pnpm -r --filter ./packages run build",
+    "build": "pnpm -r --filter=./packages/** run build",
     "ci:publish": "zx scripts/publish.mjs",
     "cy": "cypress open",
     "cy:fixture": "pnpm -C cypress/fixtures/basic run dev",
     "demo:build": "zx ./scripts/demo.mjs",
     "demo:composable-vue": "pnpm -C demo/composable-vue run dev",
     "demo:dev": "pnpm -C demo/starter run dev",
-    "dev": "pnpm -r --filter ./packages --parallel run dev",
+    "dev": "pnpm -r --filter=./packages/** --parallel run dev",
     "lint": "eslint .",
     "lint:fix": "nr lint --fix",
-    "release": "zx scripts/release.mjs",
+    "release": "bumpp package.json packages/*/package.json --all -x \"zx scripts/update-versions.mjs\"",
     "test": "vitest test"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^0.20.2",
-    "@antfu/ni": "^0.14.0",
-    "@antfu/utils": "^0.5.1",
+    "@antfu/eslint-config": "^0.26.3",
+    "@antfu/ni": "^0.18.0",
+    "@antfu/utils": "^0.5.2",
     "@slidev/cli": "workspace:*",
     "@slidev/parser": "workspace:*",
     "@slidev/types": "workspace:*",
-    "@types/cli-progress": "^3.9.2",
+    "@types/cli-progress": "^3.11.0",
     "@types/codemirror": "^5.60.5",
     "@types/connect": "^3.4.35",
     "@types/debug": "^4.1.7",
@@ -32,47 +36,42 @@
     "@types/katex": "^0.14.0",
     "@types/markdown-it": "^12.2.3",
     "@types/mermaid": "^8.2.9",
-    "@types/node": "^17.0.23",
-    "@types/prettier": "^2.6.0",
+    "@types/node": "^18.7.16",
+    "@types/prettier": "^2.7.0",
     "@types/prismjs": "^1.26.0",
     "@types/prompts": "^2.4.0",
     "@types/recordrtc": "^5.6.8",
-    "@types/resolve": "^1.20.1",
-    "@types/semver": "^7.3.9",
-    "@types/yargs": "^17.0.10",
-    "@typescript-eslint/eslint-plugin": "^5.19.0",
-    "@vueuse/core": "^8.2.5",
-    "bumpp": "^7.1.1",
+    "@types/resolve": "^1.20.2",
+    "@types/semver": "^7.3.12",
+    "@types/yargs": "^17.0.12",
+    "@typescript-eslint/eslint-plugin": "^5.36.2",
+    "@vueuse/core": "^9.2.0",
+    "bumpp": "^8.2.1",
     "cross-env": "^7.0.3",
-    "cypress": "^7.7.0",
-    "eslint": "^8.13.0",
+    "cypress": "^10.7.0",
+    "eslint": "^8.23.0",
     "eslint-plugin-cypress": "^2.12.1",
-    "esno": "^0.14.1",
-    "husky": "4.3.7",
-    "katex": "^0.15.3",
-    "lint-staged": "^12.3.7",
-    "mermaid": "^9.0.0",
-    "playwright-chromium": "^1.21.0",
-    "pnpm": "^6.32.6",
+    "esno": "^0.16.3",
+    "katex": "^0.16.2",
+    "lint-staged": "^13.0.3",
+    "mermaid": "^9.1.6",
+    "playwright-chromium": "^1.25.2",
+    "pnpm": "^7.11.0",
     "rimraf": "^3.0.2",
-    "tsup": "^5.12.5",
-    "typescript": "^4.6.3",
-    "vite": "^2.9.1",
-    "vite-plugin-windicss": "^1.8.4",
-    "vitest": "^0.9.3",
-    "zx": "^6.0.7"
+    "simple-git-hooks": "^2.8.0",
+    "tsup": "^5.12.9",
+    "typescript": "^4.8.3",
+    "vite": "^3.1.0",
+    "vite-plugin-windicss": "^1.8.8",
+    "vitest": "^0.23.2",
+    "zx": "^7.0.8"
   },
-  "husky": {
-    "hooks": {
-      "pre-commit": "lint-staged"
-    }
+  "simple-git-hooks": {
+    "pre-commit": "npx lint-staged"
   },
   "lint-staged": {
     "{packages,.vitepress,scripts}/**/*.{js,ts,vue,json}": [
       "eslint --fix"
     ]
-  },
-  "engines": {
-    "node": ">=14.0.0"
   }
 }

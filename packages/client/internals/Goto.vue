@@ -31,7 +31,7 @@ function close() {
   showGotoDialog.value = false
 }
 
-watch(showGotoDialog, async(show) => {
+watch(showGotoDialog, async (show) => {
   if (show) {
     await nextTick()
     text.value = ''
@@ -56,7 +56,7 @@ watch(text, (t) => {
     :class="showGotoDialog ? 'top-5' : '-top-20'"
     shadow="~"
     p="x-4 y-2"
-    border="~ transparent rounded dark:(gray-400 opacity-25)"
+    border="~ transparent rounded dark:gray-400 dark:opacity-25"
   >
     <input
       ref="input"

@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import path from 'path'
 import net from 'net'
 import os from 'os'
@@ -14,6 +13,7 @@ import type { LogLevel, ViteDevServer } from 'vite'
 import type { SlidevConfig } from '@slidev/types'
 import isInstalledGlobally from 'is-installed-globally'
 import equal from 'fast-deep-equal'
+import { verifyConfig } from '@slidev/parser'
 import { version } from '../package.json'
 import { createServer } from './server'
 import type { ResolvedSlidevOptions } from './options'
@@ -26,6 +26,7 @@ const CONFIG_RESTART_FIELDS: (keyof SlidevConfig)[] = [
   'monaco',
   'routerMode',
   'fonts',
+  'css',
 ]
 
 const cli = yargs
@@ -53,8 +54,7 @@ cli.command(
       describe: 'open in browser',
     })
     .option('remote', {
-      default: false,
-      type: 'boolean',
+      type: 'string',
       describe: 'listen public host and enable remote control',
     })
     .option('log', {
@@ -62,6 +62,11 @@ cli.command(
       type: 'string',
       choices: ['error', 'warn', 'info', 'silent'],
       describe: 'log level',
+    })
+    .option('inspect', {
+      default: false,
+      type: 'boolean',
+      describe: 'enable the inspect plugin for debugging',
     })
     .option('force', {
       alias: 'f',
@@ -71,7 +76,7 @@ cli.command(
     })
     .strict()
     .help(),
-  async({ entry, theme, port: userPort, open, log, remote, force }) => {
+  async ({ entry, theme, port: userPort, open, log, remote, force, inspect }) => {
     if (!fs.existsSync(entry) && !entry.endsWith('.md'))
       entry = `${entry}.md`
 
@@ -94,7 +99,7 @@ cli.command(
     async function initServer() {
       if (server)
         await server.close()
-      const options = await resolveOptions({ entry, theme }, 'dev')
+      const options = await resolveOptions({ entry, remote, theme, inspect }, 'dev')
       port = userPort || await findFreePort(3030)
       server = (await createServer(
         options,
@@ -103,7 +108,7 @@ cli.command(
             port,
             strictPort: true,
             open,
-            host: remote ? '0.0.0.0' : 'localhost',
+            host: remote !== undefined ? '0.0.0.0' : 'localhost',
             force,
           },
           logLevel: log as LogLevel,
@@ -204,12 +209,17 @@ cli.command(
       type: 'boolean',
       describe: 'allow download as PDF',
     })
+    .option('inspect', {
+      default: false,
+      type: 'boolean',
+      describe: 'enable the inspect plugin for debugging',
+    })
     .strict()
     .help(),
-  async({ entry, theme, watch, base, download, out }) => {
+  async ({ entry, theme, watch, base, download, out, inspect }) => {
     const { build } = await import('./build')
 
-    const options = await resolveOptions({ entry, theme }, 'build')
+    const options = await resolveOptions({ entry, theme, inspect }, 'build')
     if (download && !options.data.config.download)
       options.data.config.download = download
 
@@ -230,7 +240,7 @@ cli.command(
   args => commonOptions(args)
     .strict()
     .help(),
-  async({ entry }) => {
+  async ({ entry }) => {
     const data = await parser.load(entry)
     parser.prettify(data)
     await parser.save(data)
@@ -250,7 +260,7 @@ cli.command(
             type: 'string',
             default: 'theme',
           }),
-        async({ entry, dir, theme: themeInput }) => {
+        async ({ entry, dir, theme: themeInput }) => {
           const data = await parser.load(entry)
           const theme = resolveThemeName(themeInput || data.config.theme)
           if (theme === 'none') {
@@ -294,7 +304,7 @@ cli.command(
   args => commonOptions(args)
     .option('output', {
       type: 'string',
-      describe: 'path to the the port output',
+      describe: 'path to the output',
     })
     .option('format', {
       default: 'pdf',
@@ -322,9 +332,13 @@ cli.command(
       type: 'boolean',
       describe: 'export pages for every clicks',
     })
+    .option('executable-path', {
+      type: 'string',
+      describe: 'executable to override playwright bundled browser',
+    })
     .strict()
     .help(),
-  async({
+  async ({
     entry,
     theme,
     output,
@@ -333,6 +347,7 @@ cli.command(
     range,
     dark,
     'with-clicks': withClicks,
+    'executable-path': executablePath,
   }) => {
     process.env.NODE_ENV = 'production'
     const { exportSlides } = await import('./export')
@@ -364,6 +379,7 @@ cli.command(
       width,
       height,
       withClicks,
+      executablePath,
     })
     console.log(`${green('  ✓ ')}${dim('exported to ')}./${output}\n`)
     server.close()
@@ -389,7 +405,7 @@ function commonOptions(args: Argv<{}>) {
     })
 }
 
-function printInfo(options: ResolvedSlidevOptions, port?: number, remote?: string | boolean) {
+function printInfo(options: ResolvedSlidevOptions, port?: number, remote?: string) {
   console.log()
   console.log()
   console.log(`  ${cyan('●') + blue('■') + yellow('▲')}`)
@@ -398,28 +414,35 @@ function printInfo(options: ResolvedSlidevOptions, port?: number, remote?: strin
   console.log(dim('  theme   ') + (options.theme ? green(options.theme) : gray('none')))
   console.log(dim('  entry   ') + dim(path.dirname(options.entry) + path.sep) + path.basename(options.entry))
   if (port) {
-    const presenterPath = `${options.data.config.routerMode === 'hash' ? '/#/' : '/'}presenter`
+    const query = remote ? `?password=${remote}` : ''
+    const presenterPath = `${options.data.config.routerMode === 'hash' ? '/#/' : '/'}presenter/${query}`
     console.log()
-    console.log(`${dim('  slide show     ')} > ${cyan(`http://localhost:${bold(port)}/`)}`)
-    console.log(`${dim('  presenter mode ')} > ${blue(`http://localhost:${bold(port)}${presenterPath}`)}`)
+    console.log(`${dim('  public slide show ')}  > ${cyan(`http://localhost:${bold(port)}/`)}`)
+    if (query)
+      console.log(`${dim('  private slide show ')} > ${cyan(`http://localhost:${bold(port)}/${query}`)}`)
+    console.log(`${dim('  presenter mode ')}     > ${blue(`http://localhost:${bold(port)}${presenterPath}`)}`)
+    if (options.inspect)
+      console.log(`${dim('  inspector')}           > ${yellow(`http://localhost:${bold(port)}/__inspect/`)}`)
 
-    if (remote) {
+    if (remote !== undefined) {
       Object.values(os.networkInterfaces())
         .forEach(v => (v || [])
-          .filter(details => details.family === 'IPv4' && !details.address.includes('127.0.0.1'))
+          .filter(details => String(details.family).slice(-1) === '4' && !details.address.includes('127.0.0.1'))
           .forEach(({ address }) => {
-            console.log(`${dim('  remote control ')} > ${blue(`http://${address}:${port}${presenterPath}`)}`)
+            console.log(`${dim('  remote control ')}     > ${blue(`http://${address}:${port}${presenterPath}`)}`)
           }),
         )
     }
     else {
-      console.log(`${dim('  remote control ')} > ${dim('pass --remote to enable')}`)
+      console.log(`${dim('  remote control ')}     > ${dim('pass --remote to enable')}`)
     }
 
     console.log()
-    console.log(`${dim('  shortcuts ')}      > ${underline('r')}${dim('estart | ')}${underline('o')}${dim('pen | ')}${underline('e')}${dim('dit')}`)
+    console.log(`${dim('  shortcuts ')}          > ${underline('r')}${dim('estart | ')}${underline('o')}${dim('pen | ')}${underline('e')}${dim('dit')}`)
   }
+
   console.log()
+  verifyConfig(options.data.config, options.data.themeMeta, v => console.warn(yellow(`  ! ${v}`)))
   console.log()
 }
 

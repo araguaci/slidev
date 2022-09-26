@@ -2,8 +2,9 @@ import { dirname, join, resolve } from 'path'
 import type Vue from '@vitejs/plugin-vue'
 import type Icons from 'unplugin-icons/vite'
 import type Components from 'unplugin-vue-components/vite'
-import type Markdown from 'vite-plugin-md'
+import type Markdown from 'vite-plugin-vue-markdown'
 import type WindiCSS from 'vite-plugin-windicss'
+import type { VitePluginConfig as UnoCSSConfig } from 'unocss/vite'
 import type RemoteAssets from 'vite-plugin-remote-assets'
 import type ServerRef from 'vite-plugin-vue-server-ref'
 import type { ArgumentsType } from '@antfu/utils'
@@ -11,8 +12,9 @@ import { uniq } from '@antfu/utils'
 import type { SlidevMarkdown } from '@slidev/types'
 import _debug from 'debug'
 import { parser } from './parser'
-import { resolveImportPath } from './utils'
-import { getThemeMeta, packageExists, promptForThemeInstallation, resolveThemeName } from './themes'
+import { packageExists, resolveImportPath } from './utils'
+import { getThemeMeta, promptForThemeInstallation, resolveThemeName } from './themes'
+import { getAddons } from './addons'
 
 const debug = _debug('slidev:options')
 
@@ -30,11 +32,21 @@ export interface SlidevEntryOptions {
   theme?: string
 
   /**
+   * Remote password
+   */
+  remote?: string
+
+  /**
    * Root path
    *
    * @default process.cwd()
    */
   userRoot?: string
+
+  /**
+   * Enable inspect plugin
+   */
+  inspect?: boolean
 }
 
 export interface ResolvedSlidevOptions {
@@ -45,8 +57,11 @@ export interface ResolvedSlidevOptions {
   clientRoot: string
   theme: string
   themeRoots: string[]
+  addonRoots: string[]
   roots: string[]
   mode: 'dev' | 'build'
+  remote?: string
+  inspect?: boolean
 }
 
 export interface SlidevPluginOptions extends SlidevEntryOptions {
@@ -57,6 +72,7 @@ export interface SlidevPluginOptions extends SlidevEntryOptions {
   icons?: ArgumentsType<typeof Icons>[0]
   remoteAssets?: ArgumentsType<typeof RemoteAssets>[0]
   serverRef?: ArgumentsType<typeof ServerRef>[0]
+  unocss?: UnoCSSConfig
 }
 
 export interface SlidevServerOptions {
@@ -80,16 +96,19 @@ export function getThemeRoots(name: string, entry: string) {
     return []
 
   // TODO: handle theme inherit
-  if (isPath(name)) {
-    return [
-      resolve(dirname(entry), name),
-    ]
-  }
-  else {
-    return [
-      dirname(resolveImportPath(`${name}/package.json`, true)),
-    ]
-  }
+  return [getRoot(name, entry)]
+}
+
+export function getAddonRoots(addons: string[], entry: string) {
+  if (addons.length === 0)
+    return []
+  return addons.map(name => getRoot(name, entry))
+}
+
+export function getRoot(name: string, entry: string) {
+  if (isPath(name))
+    return resolve(dirname(entry), name)
+  return dirname(resolveImportPath(`${name}/package.json`, true))
 }
 
 export function getUserRoot(options: SlidevEntryOptions) {
@@ -103,6 +122,7 @@ export async function resolveOptions(
   mode: ResolvedSlidevOptions['mode'],
   promptForInstallation = true,
 ): Promise<ResolvedSlidevOptions> {
+  const { remote, inspect } = options
   const {
     entry,
     userRoot,
@@ -116,7 +136,6 @@ export async function resolveOptions(
   }
   else {
     if (!packageExists(theme)) {
-      // eslint-disable-next-line no-console
       console.error(`Theme "${theme}" not found, have you installed it?`)
       process.exit(1)
     }
@@ -125,13 +144,15 @@ export async function resolveOptions(
   const clientRoot = getClientRoot()
   const cliRoot = getCLIRoot()
   const themeRoots = getThemeRoots(theme, entry)
+  const addons = await getAddons(userRoot, data.config)
+  const addonRoots = getAddonRoots(addons, entry)
   const roots = uniq([clientRoot, ...themeRoots, userRoot])
 
   if (themeRoots.length) {
     const themeMeta = await getThemeMeta(theme, join(themeRoots[0], 'package.json'))
     data.themeMeta = themeMeta
     if (themeMeta)
-      data.config = parser.resolveConfig(data.headmatter, themeMeta)
+      data.config = parser.resolveConfig(data.headmatter, themeMeta, options.entry)
   }
 
   debug({
@@ -143,7 +164,9 @@ export async function resolveOptions(
     clientRoot,
     cliRoot,
     themeRoots,
+    addonRoots,
     roots,
+    remote,
   })
 
   return {
@@ -155,6 +178,9 @@ export async function resolveOptions(
     clientRoot,
     cliRoot,
     themeRoots,
+    addonRoots,
     roots,
+    remote,
+    inspect,
   }
 }

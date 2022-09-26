@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef } from 'vue'
 import { isColorSchemaConfigured, isDark, toggleDark } from '../logic/dark'
-import { currentPage, downloadPDF, hasNext, hasPrev, isEmbedded, isPresenter, next, prev, total } from '../logic/nav'
+import { currentPage, downloadPDF, hasNext, hasPrev, isEmbedded, isPresenter, next, presenterPassword, prev, showPresenter, total } from '../logic/nav'
 import { activeElement, breakpoints, fullscreen, showEditor, showInfoDialog, showPresenterCursor, toggleOverview } from '../state'
 import { brush, drawingEnabled } from '../logic/drawings'
 import { configs } from '../env'
@@ -20,8 +20,9 @@ const props = defineProps({
 const md = breakpoints.smaller('md')
 const { isFullscreen, toggle: toggleFullscreen } = fullscreen
 
-const presenterLink = computed(() => `/presenter/${currentPage.value}`)
-const nonPresenterLink = computed(() => `/${currentPage.value}`)
+const query = computed(() => presenterPassword.value ? `?password=${presenterPassword.value}` : '')
+const presenterLink = computed(() => `/presenter/${currentPage.value}${query.value}`)
+const nonPresenterLink = computed(() => `/${currentPage.value}${query.value}`)
 
 const root = ref<HTMLDivElement>()
 const onMouseLeave = () => {
@@ -31,7 +32,7 @@ const onMouseLeave = () => {
 
 const barStyle = computed(() => props.persist
   ? 'text-$slidev-controls-foreground bg-transparent'
-  : 'rounded-md bg-main shadow dark:(border border-gray-400 border-opacity-10)',
+  : 'rounded-md bg-main shadow dark:border dark:border-gray-400 dark:border-opacity-10',
 )
 
 const RecordingControls = shallowRef<any>()
@@ -46,7 +47,7 @@ if (__SLIDEV_FEATURE_DRAWINGS__)
 <template>
   <nav ref="root" class="flex flex-col">
     <div
-      class="flex flex-wrap-reverse text-xl p-2 gap-1"
+      class="flex flex-wrap-reverse text-xl gap-0.5 p-1 lg:gap-1 lg:p-2"
       :class="barStyle"
       @mouseleave="onMouseLeave"
     >
@@ -91,8 +92,8 @@ if (__SLIDEV_FEATURE_DRAWINGS__)
           title="Show presenter cursor"
           @click="showPresenterCursor = !showPresenterCursor"
         >
-          <ph:cursor-fill v-if="showPresenterCursor" />
-          <ph:cursor-duotone v-else class="opacity-50" />
+          <ph-cursor-fill v-if="showPresenterCursor" />
+          <ph-cursor-duotone v-else class="opacity-50" />
         </button>
       </template>
 
@@ -108,15 +109,15 @@ if (__SLIDEV_FEATURE_DRAWINGS__)
         <VerticalDivider />
       </template>
 
-      <template v-if="__DEV__ && !isEmbedded">
+      <template v-if="!isEmbedded">
         <RouterLink v-if="isPresenter" :to="nonPresenterLink" class="icon-btn" title="Play Mode">
           <carbon:presentation-file />
         </RouterLink>
-        <RouterLink v-if="!isPresenter" :to="presenterLink" class="icon-btn" title="Presenter Mode">
+        <RouterLink v-if="showPresenter" :to="presenterLink" class="icon-btn" title="Presenter Mode">
           <carbon:user-speaker />
         </RouterLink>
 
-        <button v-if="!isPresenter" class="icon-btn <md:hidden" @click="showEditor = !showEditor">
+        <button v-if="__DEV__ && !isPresenter" class="icon-btn <md:hidden" @click="showEditor = !showEditor">
           <carbon:text-annotation-toggle />
         </button>
       </template>

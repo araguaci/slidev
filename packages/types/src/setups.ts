@@ -8,6 +8,7 @@ import type { Router } from 'vue-router'
 import type mermaid from 'mermaid'
 import type { KatexOptions } from 'katex'
 import type { WindiCssOptions } from 'vite-plugin-windicss'
+import type { VitePluginConfig as UnoCssConfig } from 'unocss/vite'
 
 export interface AppContext {
   app: App
@@ -39,6 +40,9 @@ export interface NavOperations {
   prev: () => Promise<void>
   nextSlide: () => void
   prevSlide: () => Promise<void>
+  go: (index: number) => void
+  goFirst: () => void
+  goLast: () => void
   downloadPDF: () => Promise<void>
   toggleDark: () => void
   toggleOverview: () => void
@@ -51,24 +55,30 @@ export interface ShortcutOptions {
   key: string | Ref<boolean>
   fn?: () => void
   autoRepeat?: boolean
+  name?: string
 }
 
 // node side
 export type ShikiSetup = (shiki: typeof Shiki) => Awaitable<ShikiOptions | undefined>
 export type KatexSetup = () => Awaitable<Partial<KatexOptions> | undefined>
 export type WindiSetup = () => Awaitable<Partial<WindiCssOptions> | undefined>
+export type UnoSetup = () => Awaitable<Partial<UnoCssConfig> | undefined>
 
 // client side
 export type MonacoSetup = (m: typeof monaco) => Awaitable<MonacoSetupReturn>
 export type AppSetup = (context: AppContext) => Awaitable<void>
 export type MermaidSetup = () => Partial<MermaidOptions> | undefined
-export type ShortcutsSetup = (nav: NavOperations) => Array<ShortcutOptions>
+export type ShortcutsSetup = (nav: NavOperations, defaultShortcuts: ShortcutOptions[]) => Array<ShortcutOptions>
 
 export function defineShikiSetup(fn: ShikiSetup) {
   return fn
 }
 
 export function defineWindiSetup(fn: WindiSetup) {
+  return fn
+}
+
+export function defineUnoSetup(fn: UnoSetup) {
   return fn
 }
 

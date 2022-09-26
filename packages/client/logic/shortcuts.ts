@@ -1,13 +1,11 @@
 import type { Fn, KeyFilter } from '@vueuse/core'
-import { and, not, onKeyStroke } from '@vueuse/core'
+import { onKeyStroke } from '@vueuse/core'
+import { and, not } from '@vueuse/math'
 import type { Ref } from 'vue'
 import { watch } from 'vue'
 import type { ShortcutOptions } from '@slidev/types'
-import { fullscreen, isInputting, isOnFocus, magicKeys, shortcutsEnabled, showGotoDialog, showOverview, toggleOverview } from '../state'
+import { fullscreen, isInputting, isOnFocus, magicKeys, shortcutsEnabled } from '../state'
 import setupShortcuts from '../setup/shortcuts'
-import { toggleDark } from './dark'
-import { next, nextSlide, prev, prevSlide } from './nav'
-import { drawingEnabled } from './drawings'
 
 const _shortcut = and(not(isInputting), not(isOnFocus), shortcutsEnabled)
 
@@ -44,28 +42,10 @@ export function strokeShortcut(key: KeyFilter, fn: Fn) {
 }
 
 export function registerShortcuts() {
-  const customShortcuts = setupShortcuts()
+  const allShortcuts = setupShortcuts()
 
-  const { escape, space, shift, left, right, d, g, o } = magicKeys
   const shortcuts = new Map<string | Ref<Boolean>, ShortcutOptions>(
-    [
-      { key: and(space, not(shift)), fn: next, autoRepeat: true },
-      { key: and(space, shift), fn: prev, autoRepeat: true },
-      { key: and(right, not(shift)), fn: next, autoRepeat: true },
-      { key: and(left, not(shift)), fn: prev, autoRepeat: true },
-      { key: 'pageDown', fn: next, autoRepeat: true },
-      { key: 'pageUp', fn: prev, autoRepeat: true },
-      { key: 'up', fn: () => prevSlide(false), autoRepeat: true },
-      { key: 'down', fn: nextSlide, autoRepeat: true },
-      { key: and(left, shift), fn: () => prevSlide(false), autoRepeat: true },
-      { key: and(right, shift), fn: nextSlide, autoRepeat: true },
-      { key: and(d, not(drawingEnabled)), fn: toggleDark },
-      { key: and(o, not(drawingEnabled)), fn: toggleOverview },
-      { key: and(escape, not(drawingEnabled)), fn: () => showOverview.value = false },
-      { key: and(g, not(drawingEnabled)), fn: () => showGotoDialog.value = !showGotoDialog.value },
-      ...customShortcuts,
-    ]
-      .map((options: ShortcutOptions) => [options.key, options]),
+    allShortcuts.map((options: ShortcutOptions) => [options.key, options]),
   )
 
   shortcuts.forEach((options) => {

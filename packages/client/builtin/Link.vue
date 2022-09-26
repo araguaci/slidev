@@ -10,6 +10,8 @@ Usage:
 <script setup lang="ts">
 import { isPrintMode } from '../logic/nav'
 
+/* eslint-disable vue/no-v-text-v-html-on-component */
+
 defineProps<{
   to: number | string
   title?: string
@@ -17,10 +19,10 @@ defineProps<{
 </script>
 
 <template>
-  <RouterLink v-if="!isPrintMode && title" :to="to" @click="$event.target.blur()" v-html="title" />
-  <RouterLink v-else-if="!isPrintMode && !title" :to="to" @click="$event.target.blur()">
+  <RouterLink v-if="!isPrintMode && title" :to="String(to)" @click="$event.target.blur()" v-html="title" />
+  <RouterLink v-else-if="!isPrintMode && !title" :to="String(to)" @click="$event.target.blur()">
     <slot />
   </RouterLink>
-  <a v-else-if="isPrintMode && title" :href="'#' + to" v-html="title" />
-  <a v-else :href="'#' + to"><slot /></a>
+  <a v-else-if="isPrintMode && title" :href="`#${to}`" v-html="title" />
+  <a v-else :href="`#${to}`"><slot /></a>
 </template>

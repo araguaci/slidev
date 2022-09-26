@@ -4,7 +4,7 @@ import { blue, cyan, dim, green, yellow } from 'kolorist'
 import { Presets, SingleBar } from 'cli-progress'
 import { parseRangeString } from '@slidev/parser/core'
 import type { SlideInfo } from '@slidev/types'
-import { packageExists } from './themes'
+import { packageExists } from './utils'
 
 export interface ExportOptions {
   total: number
@@ -20,6 +20,7 @@ export interface ExportOptions {
   width?: number
   height?: number
   withClicks?: boolean
+  executablePath?: string
 }
 
 function createSlidevProgress(indeterminate = false) {
@@ -72,6 +73,7 @@ export async function exportSlides({
   width = 1920,
   height = 1080,
   withClicks = false,
+  executablePath = undefined,
 }: ExportOptions) {
   if (!packageExists('playwright-chromium'))
     throw new Error('The exporting for Slidev is powered by Playwright, please installed it via `npm i -D playwright-chromium`')
@@ -79,7 +81,9 @@ export async function exportSlides({
   const pages: number[] = parseRangeString(total, range)
 
   const { chromium } = await import('playwright-chromium')
-  const browser = await chromium.launch()
+  const browser = await chromium.launch({
+    executablePath,
+  })
   const context = await browser.newContext({
     viewport: {
       width,
@@ -137,28 +141,36 @@ export async function exportSlides({
 
   async function genPagePng() {
     await go('print')
+    await fs.emptyDir(output)
     const slides = await page.locator('.slide-container')
     const count = await slides.count()
     for (let i = 0; i < count; i++) {
       progress.update(i + 1)
+      let id = (await slides.nth(i).getAttribute('id')) || ''
+      id = withClicks ? id : id.split('-')[0]
       const buffer = await slides.nth(i).screenshot()
-      await fs.ensureDir(output)
-      await fs.writeFile(path.join(output, `${(i + 1).toString().padStart(2, '0')}.png`), buffer)
+      await fs.writeFile(path.join(output, `${id}.png`), buffer)
     }
   }
 
-  async function genPageMd(pages: number[], slides: SlideInfo[]) {
-    const mds: string[] = []
-
-    for (const i of pages) {
-      const mdImg = `![${slides[i - 1]?.title}](./${output}/${i.toString().padStart(2, '0')}.png)\n\n`
-      const mdNote = slides[i - 1]?.note ? `${slides[i - 1]?.note}\n\n` : ''
-      mds.push(`${mdImg}${mdNote}`)
-    }
+  async function genPageMd(slides: SlideInfo[]) {
+    const files = await fs.readdir(output)
+    const mds: string[] = files.map((file, i, files) => {
+      const slideIndex = getSlideIndex(file)
+      const mdImg = `![${slides[slideIndex]?.title}](./${path.join(output, file)})\n\n`
+      if ((i + 1 === files.length || getSlideIndex(files[i + 1]) !== slideIndex) && slides[slideIndex]?.note)
+        return `${mdImg}${slides[slideIndex]?.note}\n\n`
+      return mdImg
+    })
 
     if (!output.endsWith('.md'))
       output = `${output}.md`
     await fs.writeFile(output, mds.join(''))
+  }
+
+  function getSlideIndex(file: string): number {
+    const slideId = file.substring(0, file.indexOf('.')).split('-')[0]
+    return Number(slideId) - 1
   }
 
   progress.start(pages.length)
@@ -171,7 +183,7 @@ export async function exportSlides({
   }
   else if (format === 'md') {
     await genPagePng()
-    await genPageMd(pages, slides)
+    await genPageMd(slides)
   }
   else {
     throw new Error(`Unsupported exporting format "${format}"`)

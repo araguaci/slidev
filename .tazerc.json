@@ -1,8 +1,9 @@
 {
   "exclude": [
     "husky",
-    "cypress",
     "execa",
-    "tsup"
+    "tsup",
+    "codemirror",
+    "monaco-editor"
   ]
 }

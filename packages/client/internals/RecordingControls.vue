@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useLocalStorage } from '@vueuse/core'
+import { onMounted, watch } from 'vue'
 import { recorder } from '../logic/recording'
 import { currentCamera, showRecordingDialog } from '../state'
 import DevicesList from './DevicesList.vue'
@@ -12,19 +14,29 @@ const {
   toggleAvatar,
 } = recorder
 
+const previousAvatar = useLocalStorage('slidev-webcam-show', false)
+watch(showAvatar, () => {
+  previousAvatar.value = showAvatar.value
+})
+
 function toggleRecording() {
   if (recording.value)
     stopRecording()
   else
     showRecordingDialog.value = true
 }
+
+onMounted(() => {
+  if (previousAvatar.value && !showAvatar.value)
+    toggleAvatar()
+})
 </script>
 
 <template>
   <button
     v-if="currentCamera !== 'none'"
     class="icon-btn <md:hidden"
-    :class="{'text-green-500': Boolean(showAvatar && streamCamera)}"
+    :class="{ 'text-green-500': Boolean(showAvatar && streamCamera) }"
     title="Show camera view"
     @click="toggleAvatar"
   >
@@ -33,7 +45,7 @@ function toggleRecording() {
 
   <button
     class="icon-btn"
-    :class="{'text-red-500': recording}"
+    :class="{ 'text-red-500': recording }"
     title="Recording"
     @click="toggleRecording"
   >

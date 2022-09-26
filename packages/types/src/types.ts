@@ -1,4 +1,3 @@
-/* eslint-disable no-use-before-define */
 import type { SlidevConfig } from './config'
 
 export interface SlideInfoBase {
@@ -55,3 +54,5 @@ export interface SlidevMarkdown {
   entries?: string[]
   themeMeta?: SlidevThemeMeta
 }
+
+export type RenderContext = 'slide' | 'overview' | 'presenter' | 'previewNext'
