@@ -8,14 +8,14 @@ Usage:
 <Link :to="5" title="Go to slide 5" />
 -->
 <script setup lang="ts">
-import { isPrintMode } from '../logic/nav'
-
-/* eslint-disable vue/no-v-text-v-html-on-component */
+import { useNav } from '../composables/useNav'
 
 defineProps<{
   to: number | string
   title?: string
 }>()
+
+const { isPrintMode } = useNav()
 </script>
 
 <template>

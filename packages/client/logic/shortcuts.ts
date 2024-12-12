@@ -1,11 +1,11 @@
+import type { ShortcutOptions } from '@slidev/types'
 import type { Fn, KeyFilter } from '@vueuse/core'
+import type { Ref } from 'vue'
 import { onKeyStroke } from '@vueuse/core'
 import { and, not } from '@vueuse/math'
-import type { Ref } from 'vue'
 import { watch } from 'vue'
-import type { ShortcutOptions } from '@slidev/types'
-import { fullscreen, isInputting, isOnFocus, magicKeys, shortcutsEnabled } from '../state'
 import setupShortcuts from '../setup/shortcuts'
+import { fullscreen, isInputting, isOnFocus, magicKeys, shortcutsEnabled } from '../state'
 
 const _shortcut = and(not(isInputting), not(isOnFocus), shortcutsEnabled)
 
@@ -44,7 +44,7 @@ export function strokeShortcut(key: KeyFilter, fn: Fn) {
 export function registerShortcuts() {
   const allShortcuts = setupShortcuts()
 
-  const shortcuts = new Map<string | Ref<Boolean>, ShortcutOptions>(
+  const shortcuts = new Map<string | Ref<boolean>, ShortcutOptions>(
     allShortcuts.map((options: ShortcutOptions) => [options.key, options]),
   )
 
